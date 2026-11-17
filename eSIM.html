@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>eSIM</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=DM+Sans:wght@500;700&display=swap">
+<style>
+:root{
+  --bg:#E8EFF7;--surface:#FFFFFF;--ink:#0F2540;--muted:#51647C;--line:#C9D6E6;--accent:#2B59FF;--accent-ink:#FFFFFF;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0B1626;--surface:#13233A;--ink:#EAF1FB;--muted:#9DB0C9;--line:#26395A;--accent:#6C8DFF;--accent-ink:#0B1626;color-scheme:dark;}}
+:root[data-theme="dark"]{--bg:#0B1626;--surface:#13233A;--ink:#EAF1FB;--muted:#9DB0C9;--line:#26395A;--accent:#6C8DFF;--accent-ink:#0B1626;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font:500 17px/1.4 "DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;justify-content:center}
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:10px}
+main{width:100%;max-width:460px;padding:28px 18px 32px}
+h1{font:800 34px/1.05 "Bricolage Grotesque","DM Sans",sans-serif;letter-spacing:-.02em;margin:0 0 26px}
+h2{font:700 15px "DM Sans",sans-serif;color:var(--muted);margin:0 0 10px}
+.group{margin-bottom:24px}
+.row{display:grid;gap:10px}
+.countries{grid-template-columns:repeat(3,1fr)}
+.opt{font:inherit;color:var(--ink);background:var(--surface);border:2px solid var(--line);border-radius:14px;padding:14px 10px;cursor:pointer;text-align:center}
+.opt[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--surface))}
+.flag{display:block;font-size:28px;line-height:1.2;margin-bottom:4px}
+.plan{display:flex;justify-content:space-between;align-items:center;text-align:left;padding:16px}
+.plan b{font:800 20px "Bricolage Grotesque",sans-serif}
+.go{display:flex;width:100%;justify-content:center;background:var(--accent);color:var(--accent-ink);font:700 18px "DM Sans",sans-serif;padding:16px;border-radius:999px;text-decoration:none}
+.go:hover{filter:brightness(1.08)}
+button.go{border:0;cursor:pointer}
+.pay{margin-top:18px;background:var(--surface);border:2px solid var(--ink);border-radius:18px;padding:18px}
+.pay[hidden]{display:none}
+.tot{font:800 24px/1.1 "Bricolage Grotesque",sans-serif;margin:0 0 6px}
+.pay p{margin:0 0 14px;color:var(--muted);font-size:15px}
+.coins{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.coins .opt{padding:10px 4px;font-size:15px}
+.addr{display:block;word-break:break-all;font:500 14px ui-monospace,Menlo,Consolas,monospace;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;color:var(--ink);user-select:all}
+.sec{display:flex;width:100%;justify-content:center;font:700 16px "DM Sans",sans-serif;padding:13px;border-radius:999px;border:2px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer;margin-bottom:10px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Choisis ton eSIM</h1>
+
+  <div class="group">
+    <h2>Pays</h2>
+    <div class="row countries" id="countries"></div>
+  </div>
+
+  <div class="group">
+    <h2>eSIM</h2>
+    <div class="row" id="plans"></div>
+  </div>
+
+  <button class="go" id="order" type="button">Payer</button>
+
+  <div class="pay" id="pay" hidden>
+    <div class="tot" id="tot"></div>
+    <p>Choisis ta crypto et envoie le montant équivalent en euros à cette adresse.</p>
+    <div class="coins" id="coins"></div>
+    <code class="addr" id="addr"></code>
+    <p id="net"></p>
+    <button class="sec" id="copy" type="button">Copier l’adresse</button>
+    <a class="go" id="paid" href="#" target="_blank" rel="noopener">J’ai payé</a>
+  </div>
+</main>
+
+<script>
+/* ======= À MODIFIER ======= */
+const TG_USERNAME = "Chez_medisabot";   // sans le @
+const COUNTRIES = [["Suisse","🇨🇭"],["Canada","🇨🇦"],["Belgique","🇧🇪"]];
+const PLANS = [["7 jours",45],["13 jours",80],["30 jours",115]];   // durée, prix en €
+/* ========================== */
+let country = COUNTRIES[0][0], plan = 0;
+const $ = id => document.getElementById(id);
+
+function render(){
+  $("countries").innerHTML = COUNTRIES.map(c =>
+    `<button class="opt" aria-pressed="${c[0]===country}" data-c="${c[0]}"><span class="flag">${c[1]}</span>${c[0]}</button>`).join("");
+  $("plans").innerHTML = PLANS.map((p,i) =>
+    `<button class="opt plan" aria-pressed="${i===plan}" data-i="${i}"><b>${p[0]}</b><span>${p[1]} €</span></button>`).join("");
+  const p = PLANS[plan];
+  if(!$("pay").hidden) renderPay();
+}
+$("countries").addEventListener("click", e => { const b=e.target.closest("[data-c]"); if(b){country=b.dataset.c; render();} });
+$("plans").addEventListener("click", e => { const b=e.target.closest("[data-i]"); if(b){plan=+b.dataset.i; render();} });
+const WALLETS = {
+  USDT:{addr:"0x6eF8e2e9107bcbfc1eFA59AdFd36f3728E2bcE67",net:"Réseau Ethereum (ERC-20)"},
+  ETH:{addr:"0x6eF8e2e9107bcbfc1eFA59AdFd36f3728E2bcE67",net:"Réseau Ethereum"},
+  BTC:{addr:"bc1qq630qemg9094u0cw00rpvv4tqlhzjzmvkd59ua",net:"Réseau Bitcoin"},
+  SOL:{addr:"CHxXBanmTZr4A1MU7UqkGVdZrvpbkDGgHgYT5DSBQYFb",net:"Réseau Solana"}
+};
+let coin = "USDT";
+function renderPay(){
+  const p = PLANS[plan], w = WALLETS[coin];
+  $("tot").textContent = p[1] + " € · eSIM " + country + " " + p[0];
+  $("coins").innerHTML = Object.keys(WALLETS).map(k =>
+    `<button class="opt" aria-pressed="${k===coin}" data-k="${k}">${k}</button>`).join("");
+  $("addr").textContent = w.addr;
+  $("net").textContent = w.net + ". Envoie uniquement sur ce réseau.";
+  $("copy").textContent = "Copier l’adresse";
+  const cc = {Suisse:"CH",Canada:"CA",Belgique:"BE"}[country];
+  $("paid").href = "https://t.me/" + TG_USERNAME + "?start=" + cc + "_" + parseInt(p[0]) + "_" + coin;
+}
+$("order").addEventListener("click", () => {
+  const pay = $("pay");
+  pay.hidden = false; renderPay();
+  pay.scrollIntoView({behavior:"smooth",block:"nearest"});
+});
+$("coins").addEventListener("click", e => { const b=e.target.closest("[data-k]"); if(b){coin=b.dataset.k; renderPay();} });
+$("copy").addEventListener("click", async () => {
+  const t = WALLETS[coin].addr;
+  try { await navigator.clipboard.writeText(t); $("copy").textContent = "Adresse copiée ✓"; }
+  catch (err) {
+    const r = document.createRange(); r.selectNodeContents($("addr"));
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    $("copy").textContent = "Adresse sélectionnée, copie-la";
+  }
+});
+render();
+</script>
+</body>
+</html>
